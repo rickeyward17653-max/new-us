@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set +e
+echo "=== Mini Panel Service ==="
+systemctl status mini-cpanel --no-pager
+echo "\n=== Health ==="
+curl -fsS http://127.0.0.1:3000/health; echo
+curl -fsS http://127.0.0.1/health; echo
+echo "\n=== Ports ==="
+ss -tulnp | grep -E ':(80|443|3000|8090)\b' || true
+echo "\n=== Docker ==="
+docker ps -a || true
+echo "\n=== Nginx Test ==="
+nginx -t || true
+echo "\n=== Logs ==="
+journalctl -u mini-cpanel -n 80 --no-pager || true

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+if [[ $EUID -ne 0 ]]; then exec sudo bash "$0" "$@"; fi
+journalctl --vacuum-time=7d || true
+docker system prune -af || true
+find /opt/mini-cpanel/releases -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
+find /opt/mini-cpanel/data/logs -type f -size +50M -exec truncate -s 5M {} \; || true
+echo "✅ Clean done"

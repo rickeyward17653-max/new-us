@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+APP="${APP:-/opt/mini-cpanel}"
+if [[ $EUID -ne 0 ]]; then exec sudo APP="$APP" bash "$0" "$@"; fi
+mkdir -p "$APP/backups"
+OUT="$APP/backups/mini-cpanel-full-$(date +%F-%H%M%S).tar.gz"
+tar -czf "$OUT" \
+  -C /opt mini-cpanel/data mini-cpanel/sites mini-cpanel/backend mini-cpanel/frontend mini-cpanel/scripts \
+  -C /etc/nginx sites-available sites-enabled 2>/dev/null || true
+chmod 600 "$OUT" || true
+echo "$OUT"

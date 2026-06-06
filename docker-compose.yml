@@ -1,0 +1,17 @@
+services:
+  mini-cpanel:
+    image: node:20-alpine
+    working_dir: /app/backend
+    command: node src/server.js
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - ./data:/opt/mini-cpanel/data
+      - ./sites:/opt/mini-cpanel/sites
+      - ./backups:/opt/mini-cpanel/backups
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      APP_DIR: /opt/mini-cpanel

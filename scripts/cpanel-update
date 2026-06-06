@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+trap 'echo "[UPDATE ERROR] line=$LINENO command=$BASH_COMMAND"; journalctl -u mini-cpanel -n 120 --no-pager 2>/dev/null || true; exit 1' ERR
+APP="${APP:-/opt/mini-cpanel}"
+REPO_URL="${REPO_URL:-https://github.com/rickeyward17653-max/momnz.git}"
+PORT="${PORT:-3000}"
+if [[ $EUID -ne 0 ]]; then exec sudo APP="$APP" REPO_URL="$REPO_URL" PORT="$PORT" bash "$0" "$@"; fi
+mkdir -p "$APP/releases" "$APP/data" "$APP/sites" "$APP/backups"
+REL="$APP/releases/update-$(date +%Y%m%d-%H%M%S)"
+git clone "$REPO_URL" "$REL"
+rsync -a --delete "$REL/backend/" "$APP/backend/"
+rsync -a --delete "$REL/frontend/" "$APP/frontend/"
+rsync -a --delete "$REL/scripts/" "$APP/scripts/" 2>/dev/null || true
+rsync -a --delete "$REL/systemd/" "$APP/systemd/" 2>/dev/null || true
+cd "$APP/backend" && rm -f package-lock.json && npm install --omit=dev && node --check src/server.js
+cd "$APP/frontend" && rm -f package-lock.json && npm install && npm run build
+mkdir -p "$APP/backend/public"
+rsync -a --delete "$APP/frontend/dist/" "$APP/backend/public/"
+chmod +x "$APP/scripts/"* 2>/dev/null || true
+ln -sf "$APP/scripts/cpanel-update" /usr/local/bin/cpanel-update
+ln -sf "$APP/scripts/cpanel-backup" /usr/local/bin/cpanel-backup
+ln -sf "$APP/scripts/cpanel-status" /usr/local/bin/cpanel-status
+ln -sf "$APP/scripts/cpanel-clean" /usr/local/bin/cpanel-clean
+ln -sf "$APP/scripts/cyberpanel-install-safe" /usr/local/bin/cyberpanel-install-safe
+systemctl daemon-reload
+systemctl restart mini-cpanel
+sleep 3
+curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null
+curl -fsS "http://127.0.0.1/health" >/dev/null
+echo "✅ cpanel-update done. Runtime data kept: $APP/data $APP/sites $APP/backups"

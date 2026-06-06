@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+APP="${APP:-/opt/mini-cpanel}"
+LOG="$APP/data/logs/cyberpanel-install.log"
+mkdir -p "$(dirname "$LOG")"
+if [[ $EUID -ne 0 ]]; then exec sudo APP="$APP" bash "$0" "$@"; fi
+if ss -tulnp | grep -q ':8090'; then
+  echo "CyberPanel port 8090 already detected" | tee -a "$LOG"
+  exit 0
+fi
+PASS="${CYBER_PASS:-$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9@#%+=' | head -c 18)}"
+cat > /tmp/cyberpanel-safe.exp <<EXP
+#!/usr/bin/expect -f
+set timeout -1
+log_user 1
+spawn bash -c "sh <(curl -fsSL https://cyberpanel.net/install.sh || wget -O - https://cyberpanel.net/install.sh)"
+expect {
+  -re {.*Press Enter.*} { send "\r"; exp_continue }
+  -re {.*Please enter the number.*} { send "1\r"; exp_continue }
+  -re {.*Install CyberPanel.*} { send "1\r"; exp_continue }
+  -re {.*OpenLiteSpeed.*} { send "1\r"; exp_continue }
+  -re {.*Full service.*} { send "Y\r"; exp_continue }
+  -re {.*Remote MySQL.*} { send "N\r"; exp_continue }
+  -re {.*MySQL.*version.*} { send "\r"; exp_continue }
+  -re {.*Password.*} { send "s\r"; exp_continue }
+  -re {.*Enter password.*} { send "$PASS\r"; exp_continue }
+  -re {.*Confirm password.*} { send "$PASS\r"; exp_continue }
+  -re {.*Memcached.*} { send "Y\r"; exp_continue }
+  -re {.*Redis.*} { send "Y\r"; exp_continue }
+  -re {.*WatchDog.*} { send "Y\r"; exp_continue }
+  eof
+}
+EXP
+chmod +x /tmp/cyberpanel-safe.exp
+/tmp/cyberpanel-safe.exp >> "$LOG" 2>&1 || true
+systemctl restart lscpd 2>/dev/null || systemctl restart cyberpanel 2>/dev/null || true
+if command -v adminPass >/dev/null 2>&1; then adminPass "$PASS" >> "$LOG" 2>&1 || true; fi
+echo "CyberPanel password maybe: $PASS" >> "$LOG"
+ss -tulnp | grep ':8090' || true

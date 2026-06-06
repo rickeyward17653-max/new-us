@@ -1,0 +1,19 @@
+[Unit]
+Description=Momnz VPS Panel PRO
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mini-cpanel/backend
+EnvironmentFile=/opt/mini-cpanel/data/env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /opt/mini-cpanel/backend/src/server.js
+Restart=always
+RestartSec=3
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
